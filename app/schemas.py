@@ -17,5 +17,16 @@ class ArticleResponse(ArticleBase):
         from_attributes = True
 
 
+class DataDto(BaseModel):
+    name: str
+    content: str
+
+
 class SearchResponse(BaseModel):
-    answers: list[str]
+    data: list[DataDto]
+
+
+class ArticleSchema(BaseModel):
+    id: int
+    name: str
+    content: str
