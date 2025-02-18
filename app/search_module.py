@@ -131,12 +131,24 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
                 True for word in words if word.lower() in article["name"].lower()
             ]
             if len(positives) > 0:
-                res.append({"name": article["name"], "content": article["content"]})
+                res.append(
+                    {
+                        "id": article["id"],
+                        "name": article["name"],
+                        "content": article["content"],
+                    }
+                )
                 continue
             continue
         if texts[best_match_idx] == article["name"]:
             if max_score < 0.3:
                 continue
-            res.append({"name": article["name"], "content": article["content"]})
+            res.append(
+                {
+                    "id": article["id"],
+                    "name": article["name"],
+                    "content": article["content"],
+                }
+            )
             continue
     return res

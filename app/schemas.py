@@ -18,6 +18,7 @@ class ArticleResponse(ArticleBase):
 
 
 class DataDto(BaseModel):
+    id: int
     name: str
     content: str
 
