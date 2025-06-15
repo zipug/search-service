@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class ArticleBase(BaseModel):
+    id: int
     name: str
     description: Optional[str] = None
     content: str

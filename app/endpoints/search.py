@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from app.schemas import SearchResponse
 from app.search_module import find_answer
 

@@ -1,66 +1,42 @@
 from app.models import Article
-from app.redis_client import redis_client
 from app.database import SessionLocal
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import util
 from transformers import AutoTokenizer, AutoModel
 from typing import cast
 import numpy as np
-import json
 import torch
 import torch.nn.functional as F
-
-from app.schemas import ArticleSchema
 
 # Загружаем модель
 # model = SentenceTransformer("all-MiniLM-L6-v2")
 # model = SentenceTransformer("all-mpnet-base-v2")
-model = AutoModel.from_pretrained("sentence-transformers/all-mpnet-base-v2")
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
-
-
-# Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        db.close()
+# model = AutoModel.from_pretrained("sentence-transformers/all-mpnet-base-v2")
+model = AutoModel.from_pretrained(
+    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+)
+tokenizer = AutoTokenizer.from_pretrained(
+    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+)
+db = SessionLocal()
 
 
 def get_data(project_id: int) -> list:
     articles = []
-    db = get_db()
-    cahed_data = redis_client.get(f"project_{project_id}")
-    if cahed_data:
-        print("From cache")
-        articles = json.loads(cast(str, cahed_data))
-    else:
-        print("From db")
-        db_articles = (
-            db.query(Article)
-            .filter(Article.project_id == project_id, Article.deleted_at.is_(None))
-            .all()
-        )
-        articles = [
-            {
-                "id": cast(int, article.id),
-                "name": str(article.name),
-                "content": str(article.content),
-            }
-            for article in db_articles
-        ]
-        try:
-            data_to_cache = json.dumps(articles)
-            try:
-                redis_client.setex(
-                    name=f"project_{project_id}",
-                    time=60 * 10,
-                    value=data_to_cache,
-                )
-            except Exception as e:
-                print(f"Redis error: {e}")
-        except Exception as e:
-            print(f"Error while serializing data: {e}")
+    db_articles = (
+        db.query(Article)
+        .filter(Article.project_id == project_id, Article.deleted_at.is_(None))
+        .all()
+    )
+    articles = [
+        {
+            "id": cast(int, article.id),
+            "name": str(article.name),
+            "description": str(article.description),
+            "content": str(article.content),
+            "project_id": cast(int, article.project_id),
+        }
+        for article in db_articles
+    ]
     return articles
 
 
@@ -85,12 +61,16 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
     for article in articles:
         if "name" in article and "id" in article and "content" in article:
             print(article["name"])
-            texts.append(article["name"])
+            texts.append(
+                f"{article['name']} {article['description']} {article['content']}"
+            )
             data.append(
                 {
                     "id": article["id"],
                     "name": article["name"],
+                    "description": article["description"],
                     "content": article["content"],
+                    "project_id": article["project_id"],
                 }
             )
         else:
@@ -102,7 +82,6 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
         model_out = model(**encoded_texts)
     text_embeddings = mean_pooling(model_out, encoded_texts["attention_mask"])
     text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
-    # text_embeddings = model.encode(texts, convert_to_tensor=True)
 
     # Генерируем эмбеддинг для вопроса
     encoded_question = tokenizer(
@@ -112,7 +91,6 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
         model_out = model(**encoded_question)
     question_embedding = mean_pooling(model_out, encoded_question["attention_mask"])
     question_embedding = F.normalize(question_embedding, p=2, dim=1)
-    # question_embedding = model.encode(question, convert_to_tensor=True)
 
     # Считаем схожесть
     similarities = util.cos_sim(question_embedding, text_embeddings)
@@ -136,6 +114,7 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
                         "id": article["id"],
                         "name": article["name"],
                         "content": article["content"],
+                        "description": article["description"],
                     }
                 )
                 continue
@@ -148,6 +127,7 @@ def find_answer(project_id: int, question: str) -> None | list[str]:
                     "id": article["id"],
                     "name": article["name"],
                     "content": article["content"],
+                    "description": article["description"],
                 }
             )
             continue
