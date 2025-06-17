@@ -11,12 +11,12 @@ ENV PATH="/root/.local/bin/:$PATH"
 COPY . /app
 
 WORKDIR /app
-RUN uv sync --locked
+# RUN uv sync --locked
 
 ENV PYTHONUNBUFFERED 1
 
-RUN uv pip install torch --index-url https://download.pytorch.org/whl/cpu && \
-  uv pip install sentence-transformers && \
+RUN uv pip install torch --system --no-cache-dir --index-url https://download.pytorch.org/whl/cpu && \
+  uv pip install --system --no-cache-dir sentence-transformers && \
   uv pip install --system --no-cache-dir -r requirements.txt
 
 COPY . .
